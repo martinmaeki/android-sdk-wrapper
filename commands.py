@@ -4,6 +4,7 @@ from enum import Enum
 from properties import git_path, sdk_path as sdk_folder
 
 class PackagePattern(Enum):
+    ALL = re.compile("^\s+[\-\w;\.]+\s+\|\s[0-9]")
     BUILD_TOOLS = re.compile("^\s*build-tools;")
 
     def matches(self, line):
@@ -63,7 +64,7 @@ class SdkManagerCommand(ShellCommand):
         print('[+] Available Packages')
         for (index, package) in enumerate(available_packages):
             print('[{}]\t{}'.format(index + 1, package))
-        print('[?] You can install with buildtools -i <index>')
+        print('[?] You can install with <command> -i <index>')
         print('')
         print('')
         print('')
@@ -71,7 +72,7 @@ class SdkManagerCommand(ShellCommand):
         print('[+] Installed Packages')
         for (index, package) in enumerate(installed_packages):
             print('[{}]\t{}'.format(index + 1, package))
-        print('[?] You can uninstall with buildtools -u <index>')
+        print('[?] You can uninstall with <command> -u <index>')
         print('')
         print('')
         print('')
@@ -100,28 +101,13 @@ class SdkManagerCommand(ShellCommand):
             print('[+] Package uninstalled: {}'.format(package))
 
 
-class Licenses(SdkManagerCommand):
-    def validate(self, args, arg_count) -> bool:
-        return (True, '')
-    
-
-    def execute(self, args, arg_count) -> bool:
-        accept = input('[+] Do you want to accept licenses? y/n: ')
-        if accept.lower() == 'y':
-            # TODO: platform check
-            # Win -> give path to Git's root folder
-            yes_command = '{}\\usr\\bin\\yes.exe'.format(git_path)
-            output = self.execute_shell('{} | {}sdkmanager.bat --licenses'.format(yes_command, self.sdk_path))
-            print(output)
-        else:
-            print('[+] Licenses are not accepted')
-        return True
-
-
-class BuildTools(SdkManagerCommand):
+class InstallerCommand(SdkManagerCommand):
     available_packages = []
     installed_packages = []
-    usage = 'Usage: buildtools or buildtools -i|-u <package index>'
+
+    def __init__(self, package_pattern: PackagePattern) -> None:
+        self.package_pattern = package_pattern
+        super().__init__()
 
     def validate(self, args, arg_count):
         # Args count
@@ -142,7 +128,7 @@ class BuildTools(SdkManagerCommand):
 
     def execute(self, args, arg_count) -> bool:
         if arg_count == 0:
-            available_packages, installed_packages = self.execute_list(PackagePattern.BUILD_TOOLS)
+            available_packages, installed_packages = self.execute_list(self.package_pattern)
             self.available_packages = available_packages
             self.installed_packages = installed_packages
         elif arg_count == 2:
@@ -151,10 +137,37 @@ class BuildTools(SdkManagerCommand):
             if flag == '-i':
                 package: str = self.available_packages[package_index]
                 package = package.strip().split(' ', 1)[0]
-                
                 self.execute_sdkmanager_install(package)
             else: # flag == '-u'
                 package: str = self.installed_packages[package_index]
                 package = package.strip().split(' ', 1)[0]
                 self.execute_sdkmanager_uninstall(package)
         return True
+
+
+class Licenses(SdkManagerCommand):
+    def validate(self, args, arg_count) -> bool:
+        return (True, '')
+
+
+    def execute(self, args, arg_count) -> bool:
+        accept = input('[+] Do you want to accept licenses? y/n: ')
+        if accept.lower() == 'y':
+            # TODO: platform check
+            # Win -> give path to Git's root folder
+            yes_command = '{}\\usr\\bin\\yes.exe'.format(git_path)
+            output = self.execute_shell('{} | {}sdkmanager.bat --licenses'.format(yes_command, self.sdk_path))
+            print(output)
+        else:
+            print('[+] Licenses are not accepted')
+        return True
+
+
+class BuildTools(InstallerCommand):
+    def __init__(self) -> None:
+        super().__init__(package_pattern=PackagePattern.BUILD_TOOLS)
+
+
+class All(InstallerCommand):
+    def __init__(self) -> None:
+        super().__init__(package_pattern=PackagePattern.ALL)

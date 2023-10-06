@@ -1,10 +1,11 @@
 import cmd # https://pymotw.com/2/cmd/#shelling-out
-from commands import BuildTools, Command, Licenses
+from commands import All, BuildTools, Command, Licenses
 import os
 from properties import git_path
 
 
 class AndroidSdkWrapper(cmd.Cmd):
+    all = All()
     build_tools = BuildTools()
     licenses = Licenses()
 
@@ -31,8 +32,13 @@ class AndroidSdkWrapper(cmd.Cmd):
         print('Not implemented yet')
 
 
+    def do_all(self, args_line: str):
+        'List all installed and available packages'
+        self.run_command(self.all, args_line)
+
+
     def do_buildtools(self, args_line: str):
-        'All installed and available build-tools are printed out'
+        'List all installed and available build-tools'
         self.run_command(self.build_tools, args_line)
 
 
