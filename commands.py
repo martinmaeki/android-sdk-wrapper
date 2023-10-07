@@ -1,7 +1,8 @@
 import os
 import re
+import subprocess
 from enum import Enum
-from properties import git_path, sdk_path as sdk_folder
+from properties import sdk_path as sdk_folder
 
 class PackagePattern(Enum):
     ALL = re.compile("^\s+[\-\w;\.]+\s+\|\s[0-9]")
@@ -27,6 +28,33 @@ class ShellCommand(Command):
         #print('')
         output = os.popen(command).read()
         return output
+
+
+    def execute_shell_with_single_yes(self, command: str, yes: str = 'y') -> str:
+        command = command.split(' ')
+        output = subprocess.run(command, input=yes, capture_output=True, text=True)
+        return output.stdout
+
+
+    def execute_shell_with_multi_yes(self, command: str, yes: str = 'y') -> bool:
+        command = command.split(' ')
+        try:
+            # TODO: We should have a way to read the output pipe also to check what's going on
+            proc = subprocess.Popen(command, stdin=subprocess.PIPE)
+            while proc.returncode is None:
+                proc.poll()
+                # Can cause a BrokenPipeError if process does not require input.
+                # This can be for example if command does not need the 'yes' answer
+                # anymore.
+                proc.stdin.write('{}\n'.format(yes).encode())
+            proc.terminate()
+            return True
+        except BrokenPipeError as e:
+            # Probably because input never came, handle as ok case for now on.
+            return True
+        except Exception as e:
+            print(e)
+            return False
 
 
 class SdkManagerCommand(ShellCommand):
@@ -80,10 +108,8 @@ class SdkManagerCommand(ShellCommand):
 
 
     def execute_sdkmanager_install(self, package):
-        # TODO: platform check
-        # Win -> echo y | sdkmanager.bat --install package
         print('[+] Installing package: {}'.format(package))
-        output = self.execute_shell('echo y | {}sdkmanager.bat --install {}'.format(self.sdk_path, package))
+        output = self.execute_shell_with_single_yes('{}sdkmanager.bat --install {}'.format(self.sdk_path, package))
         if output.find('license is not accepted') != -1:
             print('[-] Accept licenses with command licenses')
         elif output.find('100% Computing updates') != -1: # If package was updated?
@@ -104,6 +130,7 @@ class SdkManagerCommand(ShellCommand):
 class InstallerCommand(SdkManagerCommand):
     available_packages = []
     installed_packages = []
+    usage = 'Usage: <command> -i|-u <package index>'
 
     def __init__(self, package_pattern: PackagePattern) -> None:
         self.package_pattern = package_pattern
@@ -153,11 +180,11 @@ class Licenses(SdkManagerCommand):
     def execute(self, args, arg_count) -> bool:
         accept = input('[+] Do you want to accept licenses? y/n: ')
         if accept.lower() == 'y':
-            # TODO: platform check
-            # Win -> give path to Git's root folder
-            yes_command = '{}\\usr\\bin\\yes.exe'.format(git_path)
-            output = self.execute_shell('{} | {}sdkmanager.bat --licenses'.format(yes_command, self.sdk_path))
-            print(output)
+            output = self.execute_shell_with_multi_yes('{}sdkmanager.bat --licenses'.format(self.sdk_path))
+            if output:
+                print('[+] Licenses accepted')
+            else:
+                print('[-] Licenses were not accepted successfully')
         else:
             print('[+] Licenses are not accepted')
         return True

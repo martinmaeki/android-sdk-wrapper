@@ -1,7 +1,5 @@
 import cmd # https://pymotw.com/2/cmd/#shelling-out
 from commands import All, BuildTools, Command, Licenses
-import os
-from properties import git_path
 
 
 class AndroidSdkWrapper(cmd.Cmd):
@@ -59,7 +57,4 @@ class AndroidSdkWrapper(cmd.Cmd):
 if __name__ == '__main__':
     # TODO: check JAVA_HOME or java --version
     # TODO: check platform properties
-    if not os.path.exists(git_path):
-        print('[-] Git path is not set in properties.py file')
-    else:
-        AndroidSdkWrapper().cmdloop()
+    AndroidSdkWrapper().cmdloop()
