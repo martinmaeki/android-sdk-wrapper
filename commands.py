@@ -3,6 +3,7 @@ import re
 import subprocess
 from enum import Enum
 from properties import sdk_path as sdk_folder
+from platforms import Platform, get_platform
 
 class PackagePattern(Enum):
     ALL = re.compile("^\s+[\-\w;\.]+\s+\|\s[0-9]")
@@ -60,8 +61,19 @@ class ShellCommand(Command):
 class SdkManagerCommand(ShellCommand):
     sdk_path = sdk_folder
 
+    def get_sdk_manager_command(self):
+        platform = get_platform()
+        if platform == Platform.WIN:
+            return 'sdkmanager.bat'
+        elif platform == Platform.LINUX or platform == Platform.MAC:
+            return 'sdkmanager'
+        return ''
+
+
     def execute_sdkmanager(self, arg_line: str):
-        return self.execute_shell('{}sdkmanager.bat {}'.format(self.sdk_path, arg_line))
+        return self.execute_shell('{}{} {}'.format(
+            self.sdk_path, self.get_sdk_manager_command(), arg_line
+        ))
 
 
     def execute_list(self, package_pattern: PackagePattern):
@@ -109,7 +121,9 @@ class SdkManagerCommand(ShellCommand):
 
     def execute_sdkmanager_install(self, package):
         print('[+] Installing package: {}'.format(package))
-        output = self.execute_shell_with_single_yes('{}sdkmanager.bat --install {}'.format(self.sdk_path, package))
+        output = self.execute_shell_with_single_yes(
+            '{}{} --install {}'.format(self.sdk_path, self.get_sdk_manager_command(), package)
+        )
         if output.find('license is not accepted') != -1:
             print('[-] Accept licenses with command licenses')
         elif output.find('100% Computing updates') != -1: # If package was updated?
@@ -180,7 +194,9 @@ class Licenses(SdkManagerCommand):
     def execute(self, args, arg_count) -> bool:
         accept = input('[+] Do you want to accept licenses? y/n: ')
         if accept.lower() == 'y':
-            output = self.execute_shell_with_multi_yes('{}sdkmanager.bat --licenses'.format(self.sdk_path))
+            output = self.execute_shell_with_multi_yes(
+                '{}{} --licenses'.format(self.sdk_path, self.get_sdk_manager_command())
+            )
             if output:
                 print('[+] Licenses accepted')
             else:

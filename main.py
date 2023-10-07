@@ -56,5 +56,4 @@ class AndroidSdkWrapper(cmd.Cmd):
 
 if __name__ == '__main__':
     # TODO: check JAVA_HOME or java --version
-    # TODO: check platform properties
     AndroidSdkWrapper().cmdloop()
